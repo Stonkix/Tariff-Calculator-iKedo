@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Помощник подбора тарифов Астрал iКЭДО</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="page-title">
+        <h1>Помощник подбора тарифов Астрал iКЭДО</h1>
+        <p>Рассчитайте стоимость подключения за несколько кликов</p>
+    </header>
+
+    <div class="calculator">
+
+        <!-- Регион -->
+        <div class="form-row">
+            <label>Выберите регион:</label>
+            <div class="toggle-group" id="region-toggle">
+                <button class="toggle-btn selected" data-click="set-region" data-val="moscow">Москва и Московская область</button>
+                <button class="toggle-btn" data-click="set-region" data-val="other">Другие регионы</button>
+            </div>
+        </div>
+
+        <!-- Количество сотрудников -->
+        <div class="form-row">
+            <div class="grid-adaptive">
+                <div class="input-group">
+                    <label for="employees-count">Количество сотрудников</label>
+                    <input type="number" id="employees-count" placeholder="0" min="0" data-action="employees">
+                </div>
+            </div>
+        </div>
+
+        <!-- Динамический блок тарифа -->
+        <div id="dynamic-content" class="content-area">
+            <div class="placeholder-text">
+                Здесь будут параметры тарифа... <br>
+                <strong>Введите количество сотрудников</strong>
+            </div>
+        </div>
+
+        <!-- Детализация -->
+        <div class="details-area" style="margin-top: 25px; padding: 15px; background: #fcfcfc; border-radius: 12px; border-left: 4px solid var(--primary);">
+            <div style="font-weight: 700; font-size: 11px; margin-bottom: 5px; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">Детализация:</div>
+            <div id="details-content" style="font-size: 14px; white-space: pre-line; color: #444; line-height: 1.6;">
+                Введите данные для расчета...
+            </div>
+        </div>
+
+        <!-- Итог -->
+        <div class="total-bar">
+            <div class="total-info">
+                <span class="kp-label">Итоговая стоимость</span>
+                <span class="kp-subtitle">в год, включая все выбранные опции</span>
+            </div>
+            <div class="total-amount">
+                <strong id="total-price">0 ₽</strong>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

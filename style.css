@@ -1,0 +1,233 @@
+:root {
+    --primary: #3B6FE0;
+    --secondary: #5B8AF5;
+    --accent: #80A8F8;
+    --bg-light: #D5E2FF;
+    --bg-gray: #F2F4F8;
+    --white: #ffffff;
+    --text: #444;
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    margin: 0;
+    padding: 20px;
+    background: var(--bg-gray);
+    font-family: 'Montserrat', sans-serif;
+    color: var(--text);
+}
+
+.page-title {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.page-title h1 {
+    color: var(--primary);
+    margin: 0 0 10px 0;
+    font-size: 32px;
+}
+
+.page-title p {
+    color: #888;
+    font-size: 16px;
+    margin: 0;
+}
+
+.calculator {
+    max-width: 850px;
+    margin: 20px auto;
+    padding: 30px;
+    background: var(--white);
+    border-radius: 28px;
+    box-shadow: 0 10px 30px rgba(59, 111, 224, 0.1);
+}
+
+.form-row {
+    margin-bottom: 20px;
+}
+
+.form-row label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--text);
+    font-size: 14px;
+}
+
+.input-group input[type="number"] {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #eee;
+    border-radius: 10px;
+    font-size: 16px;
+    font-family: inherit;
+    transition: border-color 0.3s;
+}
+
+.input-group input[type="number"]:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.grid-adaptive {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.toggle-group {
+    display: flex;
+    background: var(--bg-gray);
+    padding: 5px;
+    border-radius: 14px;
+    gap: 5px;
+}
+
+.toggle-btn {
+    flex: 1;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-family: inherit;
+    background: transparent;
+    color: #7f8c8d;
+    transition: 0.3s;
+}
+
+.toggle-btn.selected {
+    background: var(--primary);
+    color: #fff;
+}
+
+.toggle-btn:hover:not(.selected) {
+    background: rgba(59, 111, 224, 0.1);
+}
+
+.content-area {
+    min-height: 100px;
+    margin-top: 20px;
+}
+
+.placeholder-text {
+    text-align: center;
+    padding: 40px;
+    color: #aaa;
+    font-size: 16px;
+}
+
+/* Карточка тарифа — идентична ЭПД */
+.tariff-card {
+    background: linear-gradient(135deg, #f5f7fc 0%, #ffffff 100%);
+    border: 2px solid var(--bg-light);
+    border-radius: 20px;
+    padding: 25px;
+    margin-top: 20px;
+}
+
+.tariff-header {
+    margin-bottom: 20px;
+}
+
+.tariff-label {
+    display: inline-block;
+    background: var(--primary);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tariff-title {
+    margin: 10px 0 0 0;
+    color: var(--primary);
+    font-size: 22px;
+}
+
+.detailing-section {
+    margin-top: 15px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-row.highlight {
+    background: #f5f7fc;
+    padding: 12px 15px;
+    border-radius: 10px;
+    border: none;
+    margin: 10px 0;
+}
+
+.total-bar {
+    background: var(--primary);
+    padding: 20px;
+    border-radius: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+    margin-top: 30px;
+    transition: all 0.3s;
+}
+
+.total-bar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(59, 111, 224, 0.3);
+}
+
+.kp-label {
+    font-size: 18px;
+    font-weight: 700;
+    display: block;
+}
+
+.kp-subtitle {
+    font-size: 12px;
+    opacity: 0.9;
+    display: block;
+    margin-top: 5px;
+}
+
+.total-amount {
+    font-size: 28px;
+}
+
+.details-area {
+    border-left: 4px solid var(--primary) !important;
+}
+
+.animated-fade {
+    animation: fadeIn 0.4s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 600px) {
+    .grid-adaptive { grid-template-columns: 1fr; }
+    .total-bar { flex-direction: column; text-align: center; gap: 15px; }
+}
