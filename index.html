@@ -34,12 +34,45 @@
             </div>
         </div>
 
+        <!-- Срок тарифа -->
+        <div class="form-row">
+            <label>Срок тарифа:</label>
+            <div class="toggle-group" id="term-toggle">
+                <button class="toggle-btn selected" data-click="set-term" data-val="12">12 месяцев</button>
+                <button class="toggle-btn" data-click="set-term" data-val="24">24 месяца</button>
+            </div>
+        </div>
+
+        <!-- Альтернативные тарифы -->
+        <div class="form-row">
+            <label>Альтернативный тариф <span style="font-weight:400; color:#999; font-size:12px;">(заменяет основной, повторный клик — отмена)</span>:</label>
+            <div class="toggle-group" id="alt-tariff-toggle">
+                <button class="toggle-btn" data-click="set-alt-tariff" data-val="monthly">Помесячный (до 11 мес.)</button>
+                <button class="toggle-btn" data-click="set-alt-tariff" data-val="promo">Промо (1 мес. бесплатно)</button>
+            </div>
+        </div>
+
+        <!-- Количество месяцев для помесячного (скрыто по умолчанию) -->
+        <div class="form-row" id="monthly-months-row" style="display:none; align-items:center; gap:15px;">
+            <div class="input-group" style="max-width:300px;">
+                <label for="monthly-months-input">Количество месяцев (1–11)</label>
+                <input type="number" id="monthly-months-input" min="1" max="11" value="1"
+                       placeholder="1" data-action="monthly-months">
+            </div>
+        </div>
+
         <!-- Динамический блок тарифа -->
         <div id="dynamic-content" class="content-area">
             <div class="placeholder-text">
                 Здесь будут параметры тарифа... <br>
                 <strong>Введите количество сотрудников</strong>
             </div>
+        </div>
+
+        <!-- Сервисные услуги -->
+        <div style="margin-top: 30px;">
+            <h3 style="color: var(--primary); margin: 0 0 15px 0; font-size: 18px;">Сервисные услуги</h3>
+            <div id="services-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px;"></div>
         </div>
 
         <!-- Детализация -->
@@ -54,7 +87,7 @@
         <div class="total-bar">
             <div class="total-info">
                 <span class="kp-label">Итоговая стоимость</span>
-                <span class="kp-subtitle">в год, включая все выбранные опции</span>
+                <span class="kp-subtitle">включая все выбранные опции</span>
             </div>
             <div class="total-amount">
                 <strong id="total-price">0 ₽</strong>
