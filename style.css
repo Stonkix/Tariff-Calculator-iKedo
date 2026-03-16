@@ -757,3 +757,12 @@ input:checked + .slider:before { transform: translateX(20px); }
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(59, 111, 224, 0.1);
 }
+
+/* ── Кнопка КП ── */
+.kp-container {
+    cursor: pointer;
+    margin-top: 25px;
+}
+.kp-container .total-bar {
+    margin-top: 0;
+}

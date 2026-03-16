@@ -389,3 +389,286 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     UI.update();
 });
+
+/**
+ * 8. ГЕНЕРАЦИЯ PDF (КП)
+// downloadKP appended below
+
+/**
+ * 8. ГЕНЕРАЦИЯ PDF (КП)
+ *
+ * Структура:
+ *   Страница 1 — pdf-header.jpg (только)
+ *   Страница 2 — pdf-footer-1.jpg + заголовок + таблица расчёта + блок контактов
+ *   Страница 3 — pdf-footer-2.jpg (только)
+ */
+window.downloadKP = async function() {
+    const result = Calculator.calculateAll();
+    if (result.total === 0) {
+        alert('Сначала сделайте расчёт!');
+        return;
+    }
+
+    const partnerName  = document.getElementById('partner-name')?.value.trim()  || '';
+    const partnerPhone = document.getElementById('partner-phone')?.value.trim() || '';
+    const partnerEmail = document.getElementById('partner-email')?.value.trim() || '';
+    const clientName   = document.getElementById('client-name')?.value.trim()   || 'Клиент';
+
+    // ── base64 картинок ──
+    async function toBase64(url) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) return '';
+            const blob = await res.blob();
+            return new Promise((resolve, reject) => {
+                const r = new FileReader();
+                r.onload  = () => resolve(r.result);
+                r.onerror = reject;
+                r.readAsDataURL(blob);
+            });
+        } catch { return ''; }
+    }
+
+    const [b64Header, b64Footer1, b64Footer2] = await Promise.all([
+        toBase64('pdf-header.jpg'),
+        toBase64('pdf-footer-1.jpg'),
+        toBase64('pdf-footer-2.jpg'),
+    ]);
+
+    // ── Парсим lines в строки таблицы ──
+    // Каждая line выглядит так:
+    //   "Тариф: Стандартный | от 300 до 2999: 540 000 ₽"
+    //   "Установка и настройка ... × 2: 8 000 ₽"
+    // Нам нужно: наименование | тариф (цена за ед.) | количество | сумма
+    function parseLines(lines, meta) {
+        const rows = [];
+
+        lines.forEach(line => {
+            // Тарифная строка — основной/помесячный/промо
+            if (line.startsWith('Тариф:') || line.startsWith('Помесячный') || line.startsWith('Промо')) {
+                if (meta && meta.type === 'main') {
+                    const perEmp = meta.perEmp;
+                    const emp    = meta.employees;
+                    const total  = meta.totalYear;
+                    const termLabel = meta.term === 24 ? 'на 2 года' : 'на 1 год';
+                    rows.push({
+                        name:  `Лицензия для 1 сотрудника ${termLabel}`,
+                        rate:  `${Helpers.fmt(perEmp)} ₽`,
+                        qty:   emp,
+                        total: `${Helpers.fmt(total)} ₽`,
+                    });
+                } else if (meta && meta.type === 'monthly') {
+                    rows.push({
+                        name:  `Помесячная лицензия (${meta.months} мес.)`,
+                        rate:  `${Helpers.fmt(meta.perEmp)} ₽/мес.`,
+                        qty:   meta.employees,
+                        total: `${Helpers.fmt(meta.costTotal)} ₽`,
+                    });
+                } else if (meta && meta.type === 'promo') {
+                    rows.push({
+                        name:  'Промо-лицензия (1 месяц)',
+                        rate:  '0 ₽',
+                        qty:   meta.employees,
+                        total: '0 ₽',
+                    });
+                }
+                return;
+            }
+
+            // Строка услуги: "Название × qty: sum ₽"
+            const crossMatch = line.match(/^(.+?)\s*×\s*(\d+):\s*(.+)$/);
+            if (crossMatch) {
+                const name  = crossMatch[1].trim();
+                const qty   = parseInt(crossMatch[2]);
+                const total = crossMatch[3].trim();
+                // Цену за единицу берём из PRICES
+                const svc = CONSTANTS.SERVICES.find(s => name.includes(s.label) || s.label.includes(name.slice(0,20)));
+                const unitPrice = svc ? (PRICES.services[svc.priceKey] || 0) : 0;
+                rows.push({
+                    name,
+                    rate:  unitPrice > 0 ? `${Helpers.fmt(unitPrice)} ₽` : '—',
+                    qty,
+                    total,
+                });
+                return;
+            }
+        });
+
+        return rows;
+    }
+
+    const tableRows = parseLines(result.lines, result.meta);
+
+    // ── HTML таблицы (точно по скрину) ──
+    function buildTable(rows, clientName, total) {
+        const PRIMARY   = '#7756ff';
+        const ROW_EVEN  = '#ffffff';
+        const ROW_ODD   = '#faf8fc';
+        const BORDER    = '#ede8ff';
+
+        const dataRows = rows.map((row, i) => `
+            <tr style="background:${i % 2 === 0 ? ROW_EVEN : ROW_ODD};">
+                <td style="padding:13px 20px; font-size:9.5pt; color:#1a1a2e; border-bottom:1px solid ${BORDER}; line-height:1.4; width:44%;">${row.name}</td>
+                <td style="padding:13px 16px; font-size:9.5pt; color:#1a1a2e; border-bottom:1px solid ${BORDER}; text-align:center; width:18%;">${row.rate}</td>
+                <td style="padding:13px 16px; font-size:9.5pt; color:#1a1a2e; border-bottom:1px solid ${BORDER}; text-align:center; width:18%;">${row.qty}</td>
+                <td style="padding:13px 20px; font-size:9.5pt; font-weight:700; color:#1a1a2e; border-bottom:1px solid ${BORDER}; text-align:right; width:20%;">${row.total}</td>
+            </tr>`).join('');
+
+        return `
+            <div style="margin-top:16px;">
+                <div style="font-size:17pt; font-weight:800; color:${PRIMARY}; margin-bottom:18px; font-family:Montserrat,Arial,sans-serif;">
+                    Расчёт для компании «${clientName}»
+                </div>
+                <table style="width:100%; border-collapse:separate; border-spacing:0; border-radius:14px; overflow:hidden; box-shadow:0 2px 12px rgba(124,57,191,0.08);">
+                    <thead>
+                        <tr style="background:${PRIMARY};">
+                            <th style="padding:14px 20px; text-align:left; color:#fff; font-size:9.5pt; font-weight:700; border-radius:14px 0 0 0;">Наименование</th>
+                            <th style="padding:14px 16px; text-align:center; color:#fff; font-size:9.5pt; font-weight:700;">Тариф</th>
+                            <th style="padding:14px 16px; text-align:center; color:#fff; font-size:9.5pt; font-weight:700;">Количество</th>
+                            <th style="padding:14px 20px; text-align:right; color:#fff; font-size:9.5pt; font-weight:700; border-radius:0 14px 0 0;">Общая сумма</th>
+                        </tr>
+                    </thead>
+                    <tbody>${dataRows}</tbody>
+                    <tfoot>
+                        <tr style="background:${PRIMARY};">
+                            <td colspan="3" style="padding:14px 20px; color:#fff; font-size:10pt; font-weight:700; border-radius:0 0 0 14px;">Итого</td>
+                            <td style="padding:14px 20px; color:#fff; font-size:11pt; font-weight:800; text-align:right; border-radius:0 0 14px 0;">${Helpers.fmt(total)} ₽</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>`;
+    }
+
+    // ── Блок контактов ──
+    function buildContacts(name, phone, email) {
+        if (!name && !phone && !email) return '';
+        return `
+            <div style="margin-top:24px; border:1.5px solid #ede8ff; border-radius:14px; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; background:#faf8fc;">
+                <div>
+                    <div style="font-size:10pt; font-weight:700; color:#7C39BF; margin-bottom:4px;">Остались вопросы? Свяжитесь с нами</div>
+                    <div style="font-size:8.5pt; color:#888;">Готовы помочь с подключением сервиса</div>
+                </div>
+                <div style="text-align:right; font-size:9pt; color:#1a1a2e; line-height:1.8;">
+                    ${name  ? `<div style="font-weight:700;">${name}</div>`  : ''}
+                    ${phone ? `<div>${phone}</div>` : ''}
+                    ${email ? `<div>${email}</div>` : ''}
+                </div>
+            </div>`;
+    }
+
+    // ── HTML страниц ──
+    const page1HTML = `
+        <div style="width:794px; background:#fff; box-sizing:border-box;">
+            ${b64Header ? `<img src="${b64Header}" style="width:794px; display:block;">` : ''}
+        </div>`;
+
+    // ── Рендер canvas → PDF ──
+    // Измеряем высоту div без добавления в DOM (невидимо)
+    async function measureHeight(htmlContent) {
+        const div = document.createElement('div');
+        div.style.cssText = 'position:absolute; top:-9999px; left:0; width:794px; background:#fff; visibility:hidden;';
+        div.innerHTML = htmlContent;
+        document.body.appendChild(div);
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const h = div.scrollHeight;
+        document.body.removeChild(div);
+        return h;
+    }
+
+    async function renderPage(htmlContent) {
+        const div = document.createElement('div');
+        div.style.cssText = 'position:absolute; top:0; left:0; width:794px; background:#fff; z-index:99999;';
+        div.innerHTML = htmlContent;
+        document.body.appendChild(div);
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const canvas = await html2canvas(div, {
+            scale: 2.5,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: '#ffffff',
+            width: 794,
+            height: div.scrollHeight,
+            windowWidth: 794
+        });
+        document.body.removeChild(div);
+        return canvas;
+    }
+
+    // ── footer-2 адаптивно: на стр.2 если влезает, иначе отдельная стр.3 ──
+    // A4 в px при 96dpi ≈ 1122px; с запасом берём 1100
+    const A4_PX = 1100;
+
+    const page2ContentHTML = `
+        <div style="width:794px; background:#fff; box-sizing:border-box; font-family:Montserrat,Arial,sans-serif;">
+            ${b64Footer1 ? `<img src="${b64Footer1}" style="width:794px; display:block;">` : ''}
+            <div style="padding:18px 44px 40px;">
+                ${buildTable(tableRows, clientName, result.total)}
+                ${buildContacts(partnerName, partnerPhone, partnerEmail)}
+            </div>
+        </div>`;
+
+    const footer2Block = b64Footer2
+        ? `<div style="padding:0 44px 40px;"><img src="${b64Footer2}" style="width:100%; border-radius:12px; display:block;"></div>`
+        : '';
+
+    const page2WithFooter2HTML = `
+        <div style="width:794px; background:#fff; box-sizing:border-box; font-family:Montserrat,Arial,sans-serif;">
+            ${b64Footer1 ? `<img src="${b64Footer1}" style="width:794px; display:block;">` : ''}
+            <div style="padding:18px 44px 24px;">
+                ${buildTable(tableRows, clientName, result.total)}
+                ${buildContacts(partnerName, partnerPhone, partnerEmail)}
+            </div>
+            ${footer2Block}
+        </div>`;
+
+    const page2HTML = page2ContentHTML;
+
+    // Измеряем — влезает ли footer-2 на стр.2
+    const combinedHeight = await measureHeight(page2WithFooter2HTML);
+    const useCombined = combinedHeight <= A4_PX;
+
+    // ── Оверлей ──
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed; inset:0; background:rgba(30,0,60,0.55); z-index:99998; display:flex; align-items:center; justify-content:center;';
+    overlay.innerHTML = `
+        <div style="background:#fff; padding:30px 48px; border-radius:16px; text-align:center; font-family:Montserrat,Arial,sans-serif;">
+            <div style="font-size:30px; margin-bottom:10px;">📄</div>
+            <div style="font-size:14px; font-weight:700; color:#7C39BF;">Создаём PDF...</div>
+            <div style="font-size:12px; color:#888; margin-top:6px;">Это займёт несколько секунд</div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    try {
+        const { jsPDF } = window.jspdf;
+        const PDF_W = 595.28;
+        const PDF_H = 841.89;
+        const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
+
+        // Страница 1 — только header
+        const c1 = await renderPage(page1HTML);
+        doc.addImage(c1.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, PDF_W, Math.min((c1.height/c1.width)*PDF_W, PDF_H));
+
+        // Страница 2 — footer1 + таблица (+ footer2 если влезает)
+        doc.addPage();
+        const p2html = useCombined ? page2WithFooter2HTML : page2HTML;
+        const c2 = await renderPage(p2html);
+        doc.addImage(c2.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, PDF_W, Math.min((c2.height/c2.width)*PDF_W, PDF_H));
+
+        // Страница 3 — footer2 только если не влез на стр.2
+        if (!useCombined && b64Footer2) {
+            doc.addPage();
+            const page3HTML = `<div style="width:794px; background:#fff; box-sizing:border-box;">
+                <img src="${b64Footer2}" style="width:794px; display:block;">
+            </div>`;
+            const c3 = await renderPage(page3HTML);
+            doc.addImage(c3.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, PDF_W, Math.min((c3.height/c3.width)*PDF_W, PDF_H));
+        }
+
+        doc.save(`КП Астрал.iКЭДО — ${clientName}.pdf`);
+    } catch (err) {
+        console.error('Ошибка PDF:', err);
+        alert(`Ошибка создания PDF: ${err.message}`);
+    } finally {
+        document.body.removeChild(overlay);
+    }
+};
