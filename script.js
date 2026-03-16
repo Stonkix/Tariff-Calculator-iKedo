@@ -404,7 +404,7 @@ document.addEventListener('DOMContentLoaded', async () => {
  */
 window.downloadKP = async function() {
     const result = Calculator.calculateAll();
-    if (result.total === 0) {
+    if (!result.meta && result.total === 0) {
         alert('Сначала сделайте расчёт!');
         return;
     }
@@ -577,7 +577,7 @@ window.downloadKP = async function() {
 
     async function renderPage(htmlContent) {
         const div = document.createElement('div');
-        div.style.cssText = 'position:absolute; top:0; left:0; width:794px; background:#fff; z-index:99999;';
+        div.style.cssText = 'position:fixed; top:0; left:-9999px; width:794px; background:#fff; z-index:-1; pointer-events:none;';
         div.innerHTML = htmlContent;
         document.body.appendChild(div);
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -596,7 +596,7 @@ window.downloadKP = async function() {
 
     // ── footer-2 адаптивно: на стр.2 если влезает, иначе отдельная стр.3 ──
     // A4 в px при 96dpi ≈ 1122px; с запасом берём 1100
-    const A4_PX = 1100;
+    const A4_PX = 1123; // точное соответствие A4: 841.89pt * (794/595.28)
 
     const page2ContentHTML = `
         <div style="width:794px; background:#fff; box-sizing:border-box; font-family:Montserrat,Arial,sans-serif;">
@@ -607,8 +607,9 @@ window.downloadKP = async function() {
             </div>
         </div>`;
 
+    // footer-2: 2000x530px → на 794px ширине высота ровно 210px
     const footer2Block = b64Footer2
-        ? `<div style="padding:0 44px 40px;"><img src="${b64Footer2}" style="width:100%; border-radius:12px; display:block;"></div>`
+        ? `<div style="padding:0 0 0 0; width:794px;"><img src="${b64Footer2}" style="width:794px; height:210px; display:block;"></div>`
         : '';
 
     const page2WithFooter2HTML = `
@@ -626,17 +627,6 @@ window.downloadKP = async function() {
     // Измеряем — влезает ли footer-2 на стр.2
     const combinedHeight = await measureHeight(page2WithFooter2HTML);
     const useCombined = combinedHeight <= A4_PX;
-
-    // ── Оверлей ──
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed; inset:0; background:rgba(30,0,60,0.55); z-index:99998; display:flex; align-items:center; justify-content:center;';
-    overlay.innerHTML = `
-        <div style="background:#fff; padding:30px 48px; border-radius:16px; text-align:center; font-family:Montserrat,Arial,sans-serif;">
-            <div style="font-size:30px; margin-bottom:10px;">📄</div>
-            <div style="font-size:14px; font-weight:700; color:#7C39BF;">Создаём PDF...</div>
-            <div style="font-size:12px; color:#888; margin-top:6px;">Это займёт несколько секунд</div>
-        </div>`;
-    document.body.appendChild(overlay);
 
     try {
         const { jsPDF } = window.jspdf;
@@ -669,6 +659,6 @@ window.downloadKP = async function() {
         console.error('Ошибка PDF:', err);
         alert(`Ошибка создания PDF: ${err.message}`);
     } finally {
-        document.body.removeChild(overlay);
+        // nothing
     }
 };
