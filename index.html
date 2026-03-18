@@ -15,6 +15,15 @@
 
     <div class="calculator">
 
+        <!-- Вариант расчёта -->
+        <div class="form-row">
+            <label>Вариант расчёта:</label>
+            <div class="toggle-group" id="submode-toggle">
+                <button class="toggle-btn selected" data-click="set-submode" data-val="standard">Стандартный расчёт</button>
+                <button class="toggle-btn" data-click="set-submode" data-val="individual">Индивидуальный расчёт</button>
+            </div>
+        </div>
+
         <!-- Регион -->
         <div class="form-row">
             <label>Выберите регион:</label>
@@ -34,8 +43,18 @@
             </div>
         </div>
 
-        <!-- Срок тарифа -->
+        <!-- Тип тарифа -->
         <div class="form-row">
+            <label>Тип тарифа:</label>
+            <div class="toggle-group" id="tariff-type-toggle">
+                <button class="toggle-btn selected" data-click="set-tariff-type" data-val="main">Стандартный</button>
+                <button class="toggle-btn" data-click="set-tariff-type" data-val="monthly">Помесячный</button>
+                <button class="toggle-btn" data-click="set-tariff-type" data-val="promo">Промо</button>
+            </div>
+        </div>
+
+        <!-- Срок тарифа (только для стандартного) -->
+        <div class="form-row" id="term-row">
             <label>Срок тарифа:</label>
             <div class="toggle-group" id="term-toggle">
                 <button class="toggle-btn selected" data-click="set-term" data-val="12">12 месяцев</button>
@@ -43,17 +62,8 @@
             </div>
         </div>
 
-        <!-- Альтернативные тарифы -->
-        <div class="form-row">
-            <label>Альтернативный тариф <span style="font-weight:400; color:#999; font-size:12px;">(заменяет основной, повторный клик — отмена)</span>:</label>
-            <div class="toggle-group" id="alt-tariff-toggle">
-                <button class="toggle-btn" data-click="set-alt-tariff" data-val="monthly">Помесячный (до 11 мес.)</button>
-                <button class="toggle-btn" data-click="set-alt-tariff" data-val="promo">Промо (1 мес. бесплатно)</button>
-            </div>
-        </div>
-
         <!-- Количество месяцев для помесячного -->
-        <div class="form-row" id="monthly-months-row" style="display:none; align-items:center; gap:15px;">
+        <div class="form-row" id="monthly-months-row" style="display:none;">
             <div class="input-group" style="max-width:300px;">
                 <label for="monthly-months-input">Количество месяцев (1–11)</label>
                 <input type="number" id="monthly-months-input" min="1" max="11" value="1"

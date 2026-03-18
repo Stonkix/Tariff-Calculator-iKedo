@@ -105,12 +105,14 @@ PRICES.get = function(region, tariffId, term) {
  */
 const State = {
     data: {
+        subMode:       'standard',   // 'standard' | 'individual'
         region:        'moscow',
         employees:     0,
+        tariffType:    'main',       // 'main' | 'monthly' | 'promo'
         term:          12,
-        altTariff:     null,   // null | 'monthly' | 'promo'
-        monthlyMonths: 1,      // 1–11
+        monthlyMonths: 1,            // 1–11
         services:      {},
+        customPrices:  {},           // индивидуальные цены: { key: number }
     },
 
     initServices() {
@@ -129,38 +131,63 @@ const State = {
 const Helpers = {
     fmt: (num) => Math.round(num).toLocaleString('ru-RU'),
     regionLabel: (region) => region === 'moscow' ? 'Москва и Московская область' : 'Другие регионы',
+    parseNum: (val) => {
+        if (val === undefined || val === null) return 0;
+        return parseFloat(val.toString().replace(',', '.')) || 0;
+    },
 };
 
 /**
  * 5. ЛОГИКА РАСЧЁТА
  */
 const Calculator = {
+    // Получить цену за 1 сотрудника с учётом кастомной
+    getPerEmpPrice(tariffId, region, term) {
+        const baseKey = `${tariffId}_${region}_${term}`;
+        const custom  = State.data.customPrices[baseKey];
+        if (State.data.subMode === 'individual' && custom !== undefined) return custom;
+        return PRICES.get(region, tariffId, term);
+    },
+
+    getMonthlyPrice() {
+        const custom = State.data.customPrices['extra_monthly'];
+        if (State.data.subMode === 'individual' && custom !== undefined) return custom;
+        return PRICES.ikedo.extra_monthly;
+    },
+
+    getServicePrice(priceKey) {
+        const custom = State.data.customPrices[`svc_${priceKey}`];
+        if (State.data.subMode === 'individual' && custom !== undefined) return custom;
+        return PRICES.services[priceKey] || 0;
+    },
+
     calculateAll() {
-        const { employees, region, term, altTariff, monthlyMonths, services } = State.data;
+        const { employees, region, term, tariffType, monthlyMonths, services } = State.data;
         const tariff = State.getTariff(employees);
         let lines = [], total = 0, meta = null;
 
         // ── Тариф ──
         if (employees > 0) {
-            if (altTariff === 'promo') {
+            if (tariffType === 'promo') {
                 total += 0;
                 lines.push(`Промо-тариф (1 месяц): 0 ₽`);
                 meta = { type: 'promo', employees, regionLabel: Helpers.regionLabel(region) };
 
-            } else if (altTariff === 'monthly') {
-                const months        = Math.min(Math.max(monthlyMonths, 1), 11);
-                const perEmp        = PRICES.ikedo.extra_monthly;
-                const costPerMonth  = employees * perEmp;
-                const costTotal     = costPerMonth * months;
+            } else if (tariffType === 'monthly') {
+                const months       = Math.min(Math.max(monthlyMonths, 1), 11);
+                const perEmp       = this.getMonthlyPrice();
+                const costPerMonth = employees * perEmp;
+                const costTotal    = costPerMonth * months;
                 total += costTotal;
                 lines.push(`Помесячный тариф: ${employees} сотр. × ${Helpers.fmt(perEmp)} ₽ × ${months} мес. = ${Helpers.fmt(costTotal)} ₽`);
                 meta = { type: 'monthly', employees, perEmp, costPerMonth, costTotal, months, regionLabel: Helpers.regionLabel(region) };
 
             } else if (tariff) {
-                const perEmp    = PRICES.get(region, tariff.id, term);
+                const perEmp    = this.getPerEmpPrice(tariff.id, region, term);
                 const totalYear = employees * perEmp;
                 total += totalYear;
-                lines.push(`Тариф: ${tariff.name} | ${tariff.rangeLabel}: ${Helpers.fmt(totalYear)} ₽`);
+                const termLabel = term === 24 ? 'на 2 года' : 'на 1 год';
+                lines.push(`Тариф: ${tariff.name} | на ${Helpers.fmt(employees)} сотрудников (${termLabel}): ${Helpers.fmt(totalYear)} ₽`);
                 meta = { type: 'main', tariff, perEmp, totalYear, totalMonth: Math.round(totalYear / 12), employees, region, term, regionLabel: Helpers.regionLabel(region) };
             }
         }
@@ -169,7 +196,7 @@ const Calculator = {
         CONSTANTS.SERVICES.forEach(svc => {
             const qty = services[svc.id] || 0;
             if (qty > 0) {
-                const price = PRICES.services[svc.priceKey] || 0;
+                const price = this.getServicePrice(svc.priceKey);
                 const sum   = price * qty;
                 total += sum;
                 lines.push(`${svc.label} × ${qty}: ${Helpers.fmt(sum)} ₽`);
@@ -197,29 +224,56 @@ const UI = {
             .forEach(id => this.els[id] = document.getElementById(id));
     },
 
+    // ── Рендер карточек сервисных услуг ──
     renderServicesHTML() {
         const container = document.getElementById('services-container');
         if (!container) return;
-        container.innerHTML = CONSTANTS.SERVICES.map(svc => `
-            <div class="addon-card" id="svc-card-${svc.id}">
+        const isInd = State.data.subMode === 'individual';
+
+        container.innerHTML = CONSTANTS.SERVICES.map(svc => {
+            const isActive = State.data.services[svc.id] > 0;
+            const qty = State.data.services[svc.id] || 1;
+
+            const customPriceBlock = isInd ? `
+                <details class="card-price-details" style="margin-top: 12px; border-top: 1px solid #eee; padding-top: 10px;">
+                    <summary class="custom-price-summary">Изменить стоимость</summary>
+                    <div class="custom-price-content">
+                        <div class="custom-price-row">
+                            <span>Цена за единицу</span>
+                            <input type="number" min="0"
+                                value="${State.data.customPrices[`svc_${svc.priceKey}`] ?? ''}"
+                                placeholder="${PRICES.services[svc.priceKey] || 0}"
+                                class="custom-price-input"
+                                onkeydown="if(['-','e','E',',','.'].includes(event.key)) event.preventDefault();"
+                                oninput="window.updateSvcCustomPrice('${svc.priceKey}', this.value)">
+                        </div>
+                    </div>
+                </details>` : '';
+
+            return `
+            <div class="addon-card ${isActive ? 'active' : ''}" id="svc-card-${svc.id}">
                 <div class="addon-header">
                     <span class="addon-title">${svc.label}</span>
                     <label class="custom-switch">
-                        <input type="checkbox" data-action="toggle-svc" data-id="${svc.id}">
+                        <input type="checkbox" data-action="toggle-svc" data-id="${svc.id}" ${isActive ? 'checked' : ''}>
                         <span class="slider"></span>
                     </label>
                 </div>
-                <div id="svc-body-${svc.id}" style="display:none; margin-top:10px;">
+                <div id="svc-body-${svc.id}" style="display:${isActive ? 'block' : 'none'}; margin-top:10px;">
                     <div class="variant-row">
                         <span class="v-label">Количество (${svc.unit})</span>
                         <div class="v-controls">
-                            <input type="number" class="qty-input" min="1" value="1"
+                            <input type="number" class="qty-input" min="1" value="${qty}"
                                 data-action="svc-qty" data-id="${svc.id}">
                         </div>
                     </div>
                     <div id="svc-hint-${svc.id}" style="font-size:12px; color:#888; margin-top:6px; text-align:right;"></div>
+                    ${customPriceBlock}
                 </div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
+
+        this.updateServiceHints();
     },
 
     update() {
@@ -236,7 +290,7 @@ const UI = {
         CONSTANTS.SERVICES.forEach(svc => {
             const hint = document.getElementById(`svc-hint-${svc.id}`);
             if (!hint) return;
-            const price = PRICES.services[svc.priceKey] || 0;
+            const price = Calculator.getServicePrice(svc.priceKey);
             const qty   = State.data.services[svc.id] || 0;
             hint.textContent = (price > 0 && qty > 0)
                 ? `${Helpers.fmt(price)} ₽ × ${qty} = ${Helpers.fmt(price * qty)} ₽`
@@ -244,6 +298,7 @@ const UI = {
         });
     },
 
+    // ── Рендер карточки тарифа ──
     renderTariffCard(meta) {
         const container = this.els['dynamic-content'];
         if (!meta) {
@@ -251,6 +306,7 @@ const UI = {
             return;
         }
 
+        const isInd = State.data.subMode === 'individual';
         let bodyHTML = '';
 
         if (meta.type === 'promo') {
@@ -261,21 +317,46 @@ const UI = {
                 <div class="detail-row highlight"><span>Стоимость</span><strong>0 ₽</strong></div>`;
 
         } else if (meta.type === 'monthly') {
+            const priceBlock = isInd
+                ? `<div class="price-edit-block">
+                    <input type="number" class="tariff-field-input" min="0"
+                        value="${State.data.customPrices['extra_monthly'] ?? meta.perEmp}"
+                        data-action="custom-price" data-key="extra_monthly">
+                    <span class="unit-text">₽</span>
+                   </div>`
+                : `<strong>${Helpers.fmt(meta.perEmp)} ₽</strong>`;
+
             bodyHTML = `
                 <div class="detail-row"><span>Регион</span><strong>${meta.regionLabel}</strong></div>
                 <div class="detail-row"><span>Количество сотрудников</span><strong>${Helpers.fmt(meta.employees)} чел.</strong></div>
-                <div class="detail-row"><span>Цена за 1 сотрудника/мес.</span><strong>${Helpers.fmt(meta.perEmp)} ₽</strong></div>
+                <div class="detail-row">
+                    <span>Цена за 1 сотрудника/мес.</span>
+                    ${priceBlock}
+                </div>
                 <div class="detail-row"><span>Стоимость в месяц</span><strong>${Helpers.fmt(meta.costPerMonth)} ₽</strong></div>
                 <div class="detail-row highlight"><span>Срок</span><strong>${meta.months} мес.</strong></div>
                 <div class="detail-row highlight"><span>Итого</span><strong>${Helpers.fmt(meta.costTotal)} ₽</strong></div>`;
 
         } else {
             const t = meta.tariff;
+            const customKey = `${t.id}_${meta.region}_${meta.term}`;
+            const priceBlock = isInd
+                ? `<div class="price-edit-block">
+                    <input type="number" class="tariff-field-input" min="0"
+                        value="${State.data.customPrices[customKey] ?? meta.perEmp}"
+                        data-action="custom-price" data-key="${customKey}">
+                    <span class="unit-text">₽</span>
+                   </div>`
+                : `<strong>${Helpers.fmt(meta.perEmp)} ₽</strong>`;
+
             bodyHTML = `
                 <div class="detail-row"><span>Регион</span><strong>${meta.regionLabel}</strong></div>
                 <div class="detail-row"><span>Количество сотрудников</span><strong>${Helpers.fmt(meta.employees)} чел.</strong></div>
                 <div class="detail-row"><span>Срок</span><strong>${meta.term} месяцев</strong></div>
-                <div class="detail-row"><span>Цена за 1 сотрудника</span><strong>${Helpers.fmt(meta.perEmp)} ₽</strong></div>
+                <div class="detail-row">
+                    <span>Цена за 1 сотрудника</span>
+                    ${priceBlock}
+                </div>
                 <div class="detail-row highlight"><span>Итого в месяц</span><strong>${Helpers.fmt(meta.totalMonth)} ₽</strong></div>
                 <div class="detail-row highlight"><span>Итого за период</span><strong>${Helpers.fmt(meta.totalYear)} ₽</strong></div>`;
         }
@@ -284,17 +365,29 @@ const UI = {
                         : meta.type === 'monthly' ? 'Помесячный'
                         : meta.tariff.name;
         const titleText = meta.type === 'promo'   ? '0 ₽ — первый месяц'
-                        : meta.type === 'monthly' ? 'до 11 месяцев'
+                        : meta.type === 'monthly' ? `${meta.months} ${meta.months === 1 ? 'месяц' : meta.months < 5 ? 'месяца' : 'месяцев'}`
                         : meta.tariff.rangeLabel;
 
+        const indClass = State.data.subMode === 'individual' ? ' individual-mode' : '';
+
         container.innerHTML = `
-            <div class="tariff-card animated-fade">
+            <div class="tariff-card animated-fade${indClass}">
                 <div class="tariff-header">
                     <span class="tariff-label">${labelText}</span>
                     <h3 class="tariff-title">${titleText}</h3>
                 </div>
                 <div class="detailing-section">${bodyHTML}</div>
             </div>`;
+    },
+
+    // ── Показать/скрыть блоки в зависимости от типа тарифа ──
+    updateTariffTypeUI() {
+        const type = State.data.tariffType;
+        const termRow         = document.getElementById('term-row');
+        const monthlyMonthsRow = document.getElementById('monthly-months-row');
+
+        if (termRow)          termRow.style.display         = (type === 'main')    ? 'block' : 'none';
+        if (monthlyMonthsRow) monthlyMonthsRow.style.display = (type === 'monthly') ? 'block' : 'none';
     },
 
     bindEvents() {
@@ -308,7 +401,18 @@ const UI = {
         if (!btn) return;
         const act = btn.dataset.click;
 
-        if (act === 'set-region') {
+        if (act === 'set-submode') {
+            btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            State.data.subMode = btn.dataset.val;
+            // Сброс кастомных цен при переключении на стандарт
+            if (State.data.subMode === 'standard') {
+                State.data.customPrices = {};
+            }
+            this.renderServicesHTML();
+            this.update();
+        }
+        else if (act === 'set-region') {
             btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
             State.data.region = btn.dataset.val;
@@ -320,30 +424,18 @@ const UI = {
             State.data.term = parseInt(btn.dataset.val);
             this.update();
         }
-        else if (act === 'set-alt-tariff') {
-            const val   = btn.dataset.val;
-            const group = btn.closest('.toggle-group');
-
-            if (State.data.altTariff === val) {
-                // повторный клик — сброс
-                State.data.altTariff = null;
-                group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('selected'));
-            } else {
-                group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-                State.data.altTariff = val;
-            }
-
-            const monthsRow = document.getElementById('monthly-months-row');
-            if (monthsRow) {
-                monthsRow.style.display = (State.data.altTariff === 'monthly') ? 'flex' : 'none';
-            }
+        else if (act === 'set-tariff-type') {
+            btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            State.data.tariffType = btn.dataset.val;
+            this.updateTariffTypeUI();
             this.update();
         }
     },
 
     handleInput(e) {
         const t = e.target, act = t.dataset.action, val = t.value;
+
         if (act === 'employees') {
             State.data.employees = parseInt(val) || 0;
             this.update();
@@ -355,6 +447,22 @@ const UI = {
         else if (act === 'svc-qty') {
             State.data.services[t.dataset.id] = Math.max(1, parseInt(val) || 1);
             this.update();
+        }
+        else if (act === 'custom-price') {
+            const key = t.dataset.key;
+            const num = Helpers.parseNum(t.value);
+            if (!isNaN(num) && num >= 0) {
+                State.data.customPrices[key] = num;
+            } else {
+                delete State.data.customPrices[key];
+            }
+            // Пересчитываем без полного ре-рендера карточки (чтобы не сбить фокус)
+            const result = Calculator.calculateAll();
+            this.els['total-price'].textContent = Helpers.fmt(result.total) + ' ₽';
+            this.els['details-content'].innerHTML = result.lines.length
+                ? result.lines.join('<br>')
+                : 'Введите данные для расчета...';
+            this.updateServiceHints();
         }
     },
 
@@ -377,6 +485,7 @@ const UI = {
 document.addEventListener('DOMContentLoaded', async () => {
     State.initServices();
     UI.init();
+    UI.updateTariffTypeUI();
 
     try {
         const res  = await fetch('tariffs.json');
@@ -391,8 +500,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 /**
- * 8. ГЕНЕРАЦИЯ PDF (КП)
-// downloadKP appended below
+ * Глобальные функции для кастомных цен сервисов
+ */
+window.updateSvcCustomPrice = (priceKey, value) => {
+    const num = parseFloat(value);
+    if (!isNaN(num) && num >= 0) {
+        State.data.customPrices[`svc_${priceKey}`] = num;
+    } else {
+        delete State.data.customPrices[`svc_${priceKey}`];
+    }
+    const result = Calculator.calculateAll();
+    document.getElementById('total-price').textContent = Helpers.fmt(result.total) + ' ₽';
+    document.getElementById('details-content').innerHTML = result.lines.length
+        ? result.lines.join('<br>')
+        : 'Введите данные для расчета...';
+    UI.updateServiceHints();
+};
 
 /**
  * 8. ГЕНЕРАЦИЯ PDF (КП)
@@ -400,7 +523,7 @@ document.addEventListener('DOMContentLoaded', async () => {
  * Структура:
  *   Страница 1 — pdf-header.jpg (только)
  *   Страница 2 — pdf-footer-1.jpg + заголовок + таблица расчёта + блок контактов
- *   Страница 3 — pdf-footer-2.jpg (только)
+ *   Страница 3 — pdf-footer-2.jpg (только, если не влезло на стр.2)
  */
 window.downloadKP = async function() {
     const result = Calculator.calculateAll();
@@ -414,7 +537,6 @@ window.downloadKP = async function() {
     const partnerEmail = document.getElementById('partner-email')?.value.trim() || '';
     const clientName   = document.getElementById('client-name')?.value.trim()   || 'Клиент';
 
-    // ── base64 картинок ──
     async function toBase64(url) {
         try {
             const res = await fetch(url);
@@ -435,27 +557,17 @@ window.downloadKP = async function() {
         toBase64('pdf-footer-2.jpg'),
     ]);
 
-    // ── Парсим lines в строки таблицы ──
-    // Каждая line выглядит так:
-    //   "Тариф: Стандартный | от 300 до 2999: 540 000 ₽"
-    //   "Установка и настройка ... × 2: 8 000 ₽"
-    // Нам нужно: наименование | тариф (цена за ед.) | количество | сумма
     function parseLines(lines, meta) {
         const rows = [];
-
         lines.forEach(line => {
-            // Тарифная строка — основной/помесячный/промо
             if (line.startsWith('Тариф:') || line.startsWith('Помесячный') || line.startsWith('Промо')) {
                 if (meta && meta.type === 'main') {
-                    const perEmp = meta.perEmp;
-                    const emp    = meta.employees;
-                    const total  = meta.totalYear;
                     const termLabel = meta.term === 24 ? 'на 2 года' : 'на 1 год';
                     rows.push({
                         name:  `Лицензия для 1 сотрудника ${termLabel}`,
-                        rate:  `${Helpers.fmt(perEmp)} ₽`,
-                        qty:   emp,
-                        total: `${Helpers.fmt(total)} ₽`,
+                        rate:  `${Helpers.fmt(meta.perEmp)} ₽`,
+                        qty:   meta.employees,
+                        total: `${Helpers.fmt(meta.totalYear)} ₽`,
                     });
                 } else if (meta && meta.type === 'monthly') {
                     rows.push({
@@ -465,90 +577,73 @@ window.downloadKP = async function() {
                         total: `${Helpers.fmt(meta.costTotal)} ₽`,
                     });
                 } else if (meta && meta.type === 'promo') {
-                    rows.push({
-                        name:  'Промо-лицензия (1 месяц)',
-                        rate:  '0 ₽',
-                        qty:   meta.employees,
-                        total: '0 ₽',
-                    });
+                    rows.push({ name: 'Промо-лицензия (1 месяц)', rate: '0 ₽', qty: meta.employees, total: '0 ₽' });
                 }
                 return;
             }
-
-            // Строка услуги: "Название × qty: sum ₽"
             const crossMatch = line.match(/^(.+?)\s*×\s*(\d+):\s*(.+)$/);
             if (crossMatch) {
-                const name  = crossMatch[1].trim();
-                const qty   = parseInt(crossMatch[2]);
+                const name = crossMatch[1].trim();
+                const qty  = parseInt(crossMatch[2]);
                 const total = crossMatch[3].trim();
-                // Цену за единицу берём из PRICES
                 const svc = CONSTANTS.SERVICES.find(s => name.includes(s.label) || s.label.includes(name.slice(0,20)));
-                const unitPrice = svc ? (PRICES.services[svc.priceKey] || 0) : 0;
-                rows.push({
-                    name,
-                    rate:  unitPrice > 0 ? `${Helpers.fmt(unitPrice)} ₽` : '—',
-                    qty,
-                    total,
-                });
-                return;
+                const unitPrice = svc ? Calculator.getServicePrice(svc.priceKey) : 0;
+                rows.push({ name, rate: unitPrice > 0 ? `${Helpers.fmt(unitPrice)} ₽` : '—', qty, total });
             }
         });
-
         return rows;
     }
 
     const tableRows = parseLines(result.lines, result.meta);
 
-    // ── HTML таблицы (точно по скрину) ──
     function buildTable(rows, clientName, total) {
-        const PRIMARY   = '#7756ff';
-        const ROW_EVEN  = '#ffffff';
-        const ROW_ODD   = '#faf8fc';
-        const BORDER    = '#ede8ff';
+        const PRIMARY  = '#7756ff';
+        const ROW_EVEN = '#ffffff';
+        const ROW_ODD  = '#faf8fc';
+        const BORDER   = '#ede8ff';
 
         const dataRows = rows.map((row, i) => `
             <tr style="background:${i % 2 === 0 ? ROW_EVEN : ROW_ODD};">
-                <td style="padding:13px 20px; font-size:9.5pt; color:#1a1a2e; border-bottom:1px solid ${BORDER}; line-height:1.4; width:44%;">${row.name}</td>
-                <td style="padding:13px 16px; font-size:9.5pt; color:#1a1a2e; border-bottom:1px solid ${BORDER}; text-align:center; width:18%;">${row.rate}</td>
-                <td style="padding:13px 16px; font-size:9.5pt; color:#1a1a2e; border-bottom:1px solid ${BORDER}; text-align:center; width:18%;">${row.qty}</td>
-                <td style="padding:13px 20px; font-size:9.5pt; font-weight:700; color:#1a1a2e; border-bottom:1px solid ${BORDER}; text-align:right; width:20%;">${row.total}</td>
+                <td style="padding:13px 20px;font-size:9.5pt;color:#1a1a2e;border-bottom:1px solid ${BORDER};line-height:1.4;width:44%;">${row.name}</td>
+                <td style="padding:13px 16px;font-size:9.5pt;color:#1a1a2e;border-bottom:1px solid ${BORDER};text-align:center;width:18%;">${row.rate}</td>
+                <td style="padding:13px 16px;font-size:9.5pt;color:#1a1a2e;border-bottom:1px solid ${BORDER};text-align:center;width:18%;">${row.qty}</td>
+                <td style="padding:13px 20px;font-size:9.5pt;font-weight:700;color:#1a1a2e;border-bottom:1px solid ${BORDER};text-align:right;width:20%;">${row.total}</td>
             </tr>`).join('');
 
         return `
             <div style="margin-top:16px;">
-                <div style="font-size:17pt; font-weight:800; color:${PRIMARY}; margin-bottom:18px; font-family:Montserrat,Arial,sans-serif;">
+                <div style="font-size:17pt;font-weight:800;color:${PRIMARY};margin-bottom:18px;font-family:Montserrat,Arial,sans-serif;">
                     Расчёт для компании «${clientName}»
                 </div>
-                <table style="width:100%; border-collapse:separate; border-spacing:0; border-radius:14px; overflow:hidden; box-shadow:0 2px 12px rgba(124,57,191,0.08);">
+                <table style="width:100%;border-collapse:separate;border-spacing:0;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(124,57,191,0.08);">
                     <thead>
                         <tr style="background:${PRIMARY};">
-                            <th style="padding:14px 20px; text-align:left; color:#fff; font-size:9.5pt; font-weight:700; border-radius:14px 0 0 0;">Наименование</th>
-                            <th style="padding:14px 16px; text-align:center; color:#fff; font-size:9.5pt; font-weight:700;">Тариф</th>
-                            <th style="padding:14px 16px; text-align:center; color:#fff; font-size:9.5pt; font-weight:700;">Количество</th>
-                            <th style="padding:14px 20px; text-align:right; color:#fff; font-size:9.5pt; font-weight:700; border-radius:0 14px 0 0;">Общая сумма</th>
+                            <th style="padding:14px 20px;text-align:left;color:#fff;font-size:9.5pt;font-weight:700;border-radius:14px 0 0 0;">Наименование</th>
+                            <th style="padding:14px 16px;text-align:center;color:#fff;font-size:9.5pt;font-weight:700;">Тариф</th>
+                            <th style="padding:14px 16px;text-align:center;color:#fff;font-size:9.5pt;font-weight:700;">Количество</th>
+                            <th style="padding:14px 20px;text-align:right;color:#fff;font-size:9.5pt;font-weight:700;border-radius:0 14px 0 0;">Общая сумма</th>
                         </tr>
                     </thead>
                     <tbody>${dataRows}</tbody>
                     <tfoot>
                         <tr style="background:${PRIMARY};">
-                            <td colspan="3" style="padding:14px 20px; color:#fff; font-size:10pt; font-weight:700; border-radius:0 0 0 14px;">Итого</td>
-                            <td style="padding:14px 20px; color:#fff; font-size:11pt; font-weight:800; text-align:right; border-radius:0 0 14px 0;">${Helpers.fmt(total)} ₽</td>
+                            <td colspan="3" style="padding:14px 20px;color:#fff;font-size:10pt;font-weight:700;border-radius:0 0 0 14px;">Итого</td>
+                            <td style="padding:14px 20px;color:#fff;font-size:11pt;font-weight:800;text-align:right;border-radius:0 0 14px 0;">${Helpers.fmt(total)} ₽</td>
                         </tr>
                     </tfoot>
                 </table>
             </div>`;
     }
 
-    // ── Блок контактов ──
     function buildContacts(name, phone, email) {
         if (!name && !phone && !email) return '';
         return `
-            <div style="margin-top:24px; border:1.5px solid #ede8ff; border-radius:14px; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; background:#faf8fc;">
+            <div style="margin-top:24px;border:1.5px solid #ede8ff;border-radius:14px;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;background:#faf8fc;">
                 <div>
-                    <div style="font-size:10pt; font-weight:700; color:#7C39BF; margin-bottom:4px;">Остались вопросы? Свяжитесь с нами</div>
-                    <div style="font-size:8.5pt; color:#888;">Готовы помочь с подключением сервиса</div>
+                    <div style="font-size:10pt;font-weight:700;color:#7C39BF;margin-bottom:4px;">Остались вопросы? Свяжитесь с нами</div>
+                    <div style="font-size:8.5pt;color:#888;">Готовы помочь с подключением сервиса</div>
                 </div>
-                <div style="text-align:right; font-size:9pt; color:#1a1a2e; line-height:1.8;">
+                <div style="text-align:right;font-size:9pt;color:#1a1a2e;line-height:1.8;">
                     ${name  ? `<div style="font-weight:700;">${name}</div>`  : ''}
                     ${phone ? `<div>${phone}</div>` : ''}
                     ${email ? `<div>${email}</div>` : ''}
@@ -556,17 +651,14 @@ window.downloadKP = async function() {
             </div>`;
     }
 
-    // ── HTML страниц ──
     const page1HTML = `
-        <div style="width:794px; background:#fff; box-sizing:border-box;">
-            ${b64Header ? `<img src="${b64Header}" style="width:794px; display:block;">` : ''}
+        <div style="width:794px;background:#fff;box-sizing:border-box;">
+            ${b64Header ? `<img src="${b64Header}" style="width:794px;display:block;">` : ''}
         </div>`;
 
-    // ── Рендер canvas → PDF ──
-    // Измеряем высоту div без добавления в DOM (невидимо)
     async function measureHeight(htmlContent) {
         const div = document.createElement('div');
-        div.style.cssText = 'position:absolute; top:-9999px; left:0; width:794px; background:#fff; visibility:hidden;';
+        div.style.cssText = 'position:absolute;top:-9999px;left:0;width:794px;background:#fff;visibility:hidden;';
         div.innerHTML = htmlContent;
         document.body.appendChild(div);
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -577,44 +669,36 @@ window.downloadKP = async function() {
 
     async function renderPage(htmlContent) {
         const div = document.createElement('div');
-        div.style.cssText = 'position:fixed; top:0; left:-9999px; width:794px; background:#fff; z-index:-1; pointer-events:none;';
+        div.style.cssText = 'position:fixed;top:0;left:-9999px;width:794px;background:#fff;z-index:-1;pointer-events:none;';
         div.innerHTML = htmlContent;
         document.body.appendChild(div);
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         const canvas = await html2canvas(div, {
-            scale: 2.5,
-            useCORS: true,
-            allowTaint: false,
-            backgroundColor: '#ffffff',
-            width: 794,
-            height: div.scrollHeight,
-            windowWidth: 794
+            scale: 2.5, useCORS: true, allowTaint: false,
+            backgroundColor: '#ffffff', width: 794, height: div.scrollHeight, windowWidth: 794
         });
         document.body.removeChild(div);
         return canvas;
     }
 
-    // ── footer-2 адаптивно: на стр.2 если влезает, иначе отдельная стр.3 ──
-    // A4 в px при 96dpi ≈ 1122px; с запасом берём 1100
-    const A4_PX = 1123; // точное соответствие A4: 841.89pt * (794/595.28)
+    const A4_PX = 1123;
 
     const page2ContentHTML = `
-        <div style="width:794px; background:#fff; box-sizing:border-box; font-family:Montserrat,Arial,sans-serif;">
-            ${b64Footer1 ? `<img src="${b64Footer1}" style="width:794px; display:block;">` : ''}
+        <div style="width:794px;background:#fff;box-sizing:border-box;font-family:Montserrat,Arial,sans-serif;">
+            ${b64Footer1 ? `<img src="${b64Footer1}" style="width:794px;display:block;">` : ''}
             <div style="padding:18px 44px 40px;">
                 ${buildTable(tableRows, clientName, result.total)}
                 ${buildContacts(partnerName, partnerPhone, partnerEmail)}
             </div>
         </div>`;
 
-    // footer-2: 2000x530px → на 794px ширине высота ровно 210px
     const footer2Block = b64Footer2
-        ? `<div style="padding:0 0 0 0; width:794px;"><img src="${b64Footer2}" style="width:794px; height:210px; display:block;"></div>`
+        ? `<div style="width:794px;"><img src="${b64Footer2}" style="width:794px;height:210px;display:block;"></div>`
         : '';
 
     const page2WithFooter2HTML = `
-        <div style="width:794px; background:#fff; box-sizing:border-box; font-family:Montserrat,Arial,sans-serif;">
-            ${b64Footer1 ? `<img src="${b64Footer1}" style="width:794px; display:block;">` : ''}
+        <div style="width:794px;background:#fff;box-sizing:border-box;font-family:Montserrat,Arial,sans-serif;">
+            ${b64Footer1 ? `<img src="${b64Footer1}" style="width:794px;display:block;">` : ''}
             <div style="padding:18px 44px 24px;">
                 ${buildTable(tableRows, clientName, result.total)}
                 ${buildContacts(partnerName, partnerPhone, partnerEmail)}
@@ -622,36 +706,36 @@ window.downloadKP = async function() {
             ${footer2Block}
         </div>`;
 
-    const page2HTML = page2ContentHTML;
-
-    // Измеряем — влезает ли footer-2 на стр.2
     const combinedHeight = await measureHeight(page2WithFooter2HTML);
     const useCombined = combinedHeight <= A4_PX;
 
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(30,0,60,0.5);z-index:99998;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = `<div style="background:#fff;padding:28px 40px;border-radius:14px;text-align:center;font-family:Arial,sans-serif;">
+        <div style="font-size:26px;margin-bottom:10px;">📄</div>
+        <div style="font-size:14px;font-weight:600;color:#6d28d9;">Создаём PDF...</div>
+    </div>`;
+    document.body.appendChild(overlay);
+
     try {
         const { jsPDF } = window.jspdf;
-        const PDF_W = 595.28;
-        const PDF_H = 841.89;
+        const PDF_W = 595.28, PDF_H = 841.89;
         const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
 
-        // Страница 1 — только header
         const c1 = await renderPage(page1HTML);
-        doc.addImage(c1.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, PDF_W, Math.min((c1.height/c1.width)*PDF_W, PDF_H));
+        doc.addImage(c1.toDataURL('image/jpeg', 1.00), 'JPEG', 0, 0, PDF_W, Math.min((c1.height/c1.width)*PDF_W, PDF_H));
 
-        // Страница 2 — footer1 + таблица (+ footer2 если влезает)
         doc.addPage();
-        const p2html = useCombined ? page2WithFooter2HTML : page2HTML;
+        const p2html = useCombined ? page2WithFooter2HTML : page2ContentHTML;
         const c2 = await renderPage(p2html);
-        doc.addImage(c2.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, PDF_W, Math.min((c2.height/c2.width)*PDF_W, PDF_H));
+        doc.addImage(c2.toDataURL('image/jpeg', 1.00), 'JPEG', 0, 0, PDF_W, Math.min((c2.height/c2.width)*PDF_W, PDF_H));
 
-        // Страница 3 — footer2 только если не влез на стр.2
         if (!useCombined && b64Footer2) {
             doc.addPage();
-            const page3HTML = `<div style="width:794px; background:#fff; box-sizing:border-box;">
-                <img src="${b64Footer2}" style="width:794px; display:block;">
-            </div>`;
-            const c3 = await renderPage(page3HTML);
-            doc.addImage(c3.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, PDF_W, Math.min((c3.height/c3.width)*PDF_W, PDF_H));
+            const c3 = await renderPage(`<div style="width:794px;background:#fff;box-sizing:border-box;">
+                <img src="${b64Footer2}" style="width:794px;display:block;">
+            </div>`);
+            doc.addImage(c3.toDataURL('image/jpeg', 1.00), 'JPEG', 0, 0, PDF_W, Math.min((c3.height/c3.width)*PDF_W, PDF_H));
         }
 
         doc.save(`КП Астрал.iКЭДО — ${clientName}.pdf`);
@@ -659,6 +743,6 @@ window.downloadKP = async function() {
         console.error('Ошибка PDF:', err);
         alert(`Ошибка создания PDF: ${err.message}`);
     } finally {
-        // nothing
+        document.body.removeChild(overlay);
     }
 };

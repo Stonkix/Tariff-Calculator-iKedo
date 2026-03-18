@@ -81,120 +81,7 @@ body {
     border-color: var(--primary);
 }
 
-/* Сетка для карточек */
-.sig-grid, .mchd-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    margin-top: 15px;
-}
-
-.sig-card, .mchd-card {
-    background: #fff;
-    border: 2px solid #eee;
-    border-radius: 20px;
-    padding: 20px;
-    transition: all 0.3s ease;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.sig-card:hover, .mchd-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(124, 57, 191, 0.1);
-}
-
-.sig-card.locked { 
-    opacity: 0.5; 
-    pointer-events: none;
-}
-
-.sig-card.active, .mchd-card.active {
-    border-color: var(--primary);
-    background: #faf8fc;
-}
-
-.mchd-desc {
-    font-size: 12px;
-    color: #888;
-    margin: 5px 0;
-}
-
-.mchd-input {
-    margin-top: 10px;
-}
-
-.sig-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.sig-header strong {
-    color: var(--primary);
-    font-size: 15px;
-}
-
-/* --- ПЕРЕКЛЮЧАТЕЛЬ (SWITCH) --- */
-.custom-switch {
-    position: relative;
-    display: inline-block;
-    width: 44px;
-    height: 24px;
-}
-
-.custom-switch input { 
-    opacity: 0; 
-    width: 0; 
-    height: 0; 
-}
-
-.slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0; 
-    left: 0; 
-    right: 0; 
-    bottom: 0;
-    background-color: #ccc;
-    transition: .4s;
-    border-radius: 24px;
-}
-
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 18px; 
-    width: 18px;
-    left: 3px; 
-    bottom: 3px;
-    background-color: white;
-    transition: .4s;
-    border-radius: 50%;
-}
-
-input:checked + .slider { 
-    background-color: var(--primary); 
-}
-
-input:checked + .slider:before { 
-    transform: translateX(20px); 
-}
-
-input:disabled + .slider {
-    background-color: #ddd;
-    cursor: not-allowed;
-}
-
-/* --- ОСТАЛЬНЫЕ СТИЛИ --- */
-.grid-adaptive { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr; 
-    gap: 20px; 
-}
-
+/* ── Переключатель (TOGGLE) ── */
 .toggle-group { 
     display: flex; 
     background: var(--bg-gray); 
@@ -214,6 +101,7 @@ input:disabled + .slider {
     background: transparent; 
     color: #7f8c8d; 
     transition: 0.3s;
+    font-size: 14px;
 }
 
 .toggle-btn.selected { 
@@ -225,67 +113,17 @@ input:disabled + .slider {
     background: rgba(124, 57, 191, 0.1);
 }
 
-.qty-input, .price-input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    text-align: center;
-    font-family: inherit;
+/* Индивидуальный режим — акцентный цвет кнопки */
+#submode-toggle .toggle-btn.selected[data-val="individual"] {
+    background: var(--secondary);
 }
 
-.qty-input.fixed-width {
-    width: 80px;
-}
-
-.total-bar {
-    background: var(--primary);
-    padding: 20px;
-    border-radius: 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: white;
-    cursor: pointer;
-    margin-top: 30px;
-    transition: all 0.3s;
-}
-
-.total-bar:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(124, 57, 191, 0.3);
-}
-
-.kp-label {
-    font-size: 18px;
-    font-weight: 700;
-    display: block;
-}
-
-.kp-subtitle {
-    font-size: 12px;
-    opacity: 0.9;
-    display: block;
-    margin-top: 5px;
-}
-
-.total-amount {
-    font-size: 28px;
-}
-
-.placeholder-text {
-    text-align: center;
-    padding: 40px;
-    color: #aaa;
-    font-size: 16px;
-}
-
+/* ── Карточка тарифа ── */
 .content-area {
     min-height: 100px;
     margin-top: 20px;
 }
 
-/* Стили для карточки тарифа */
 .tariff-card {
     background: linear-gradient(135deg, #f8f5fc 0%, #ffffff 100%);
     border: 2px solid var(--bg-light);
@@ -295,8 +133,8 @@ input:disabled + .slider {
 }
 
 .tariff-card.individual-mode {
-    border-color: var(--accent);
-    background: linear-gradient(135deg, #faf8fc 0%, #ffffff 100%);
+    border-color: var(--secondary);
+    background: linear-gradient(135deg, #fdf5ff 0%, #ffffff 100%);
 }
 
 .tariff-header {
@@ -337,35 +175,12 @@ input:disabled + .slider {
     border-bottom: 1px solid #f0f0f0;
 }
 
-.detail-row > strong,
-.detail-row > .price-edit-block {
-    flex-shrink: 0;
-}
-
 .detail-row.highlight {
     background: #faf8fc;
     padding: 12px 15px;
     border-radius: 10px;
     border: none;
     margin: 10px 0;
-}
-
-/* FIX 5: Убрана ракета и обводка */
-.detail-row.project-row {
-    background: linear-gradient(135deg, #f3ecff 0%, #faf8fc 100%);
-    padding: 12px 15px;
-    border-radius: 10px;
-    border: none;
-    margin: 10px 0;
-}
-
-.detail-row.project-row span {
-    color: var(--primary);
-    font-weight: 600;
-}
-
-.detail-row.project-row strong {
-    color: var(--primary);
 }
 
 .price-edit-block {
@@ -375,11 +190,11 @@ input:disabled + .slider {
     flex-shrink: 0;
 }
 
-/* Единый стиль для всех редактируемых полей в карточке тарифа */
+/* Поле редактирования цены в карточке тарифа */
 .tariff-field-input {
-    width: 110px;
+    width: 120px;
     padding: 8px 10px;
-    border: 1px solid #ddd;
+    border: 2px solid var(--accent);
     border-radius: 8px;
     text-align: center;
     font-weight: 600;
@@ -387,28 +202,10 @@ input:disabled + .slider {
     background: #ffffff;
     transition: border-color 0.3s, box-shadow 0.3s;
     font-family: inherit;
+    color: var(--primary);
 }
 
 .tariff-field-input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(124, 57, 191, 0.1);
-}
-
-/* Оставляем inline-edit для обратной совместимости */
-.inline-edit {
-    width: 110px;
-    padding: 8px 10px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    text-align: center;
-    font-weight: 600;
-    background: #ffffff;
-    transition: all 0.3s;
-    font-family: inherit;
-}
-
-.inline-edit:focus {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(124, 57, 191, 0.1);
@@ -419,33 +216,66 @@ input:disabled + .slider {
     color: #888;
 }
 
-/* Адаптив */
-@media (max-width: 600px) {
-    .grid-adaptive, .sig-grid, .mchd-grid { 
-        grid-template-columns: 1fr; 
-    }
-    .total-bar { 
-        flex-direction: column; 
-        text-align: center; 
-        gap: 15px; 
-    }
+/* ── Сетка ── */
+.grid-adaptive { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 20px; 
 }
 
-/* Контейнер для доп. услуг */
-#addons-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
+.placeholder-text {
+    text-align: center;
+    padding: 40px;
+    color: #aaa;
+    font-size: 16px;
+}
+
+/* ── Итоговая строка ── */
+.total-bar {
+    background: var(--primary);
+    padding: 20px;
+    border-radius: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+    cursor: pointer;
+    margin-top: 30px;
+    transition: all 0.3s;
+}
+
+.total-bar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(124, 57, 191, 0.3);
+}
+
+.kp-label {
+    font-size: 18px;
+    font-weight: 700;
+    display: block;
+}
+
+.kp-subtitle {
+    font-size: 12px;
+    opacity: 0.9;
+    display: block;
+    margin-top: 5px;
+}
+
+.total-amount {
+    font-size: 28px;
+}
+
+.kp-container {
+    cursor: pointer;
     margin-top: 25px;
 }
 
-.section-title {
-    grid-column: 1 / -1;
-    color: var(--primary);
-    margin: 0 0 10px 0;
-    font-size: 20px;
+.kp-container .total-bar {
+    margin-top: 0;
 }
 
+/* ── Карточки сервисных услуг ── */
 .addon-card {
     background: #fff;
     border: 2px solid #eee;
@@ -464,223 +294,6 @@ input:disabled + .slider {
 .addon-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-.addon-title {
-    font-weight: 700;
-    color: var(--primary);
-    font-size: 15px;
-}
-
-/* Строки с выбором вариантов внутри допа */
-.variant-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border-top: 1px solid #f9f9f9;
-    font-size: 13px;
-}
-
-.variant-row.kep-row {
-    padding: 10px 0;
-}
-
-.v-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.v-label {
-    color: var(--text);
-    flex: 1;
-    padding-right: 8px;
-}
-
-/* Анимация появления */
-.animated-fade {
-    animation: fadeIn 0.4s ease-in-out;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Стили для кастомных цен */
-.custom-price-summary {
-    font-size: 11px;
-    color: var(--primary);
-    cursor: pointer;
-    font-weight: 600;
-    padding: 8px 0;
-    user-select: none;
-    transition: color 0.3s;
-}
-
-.custom-price-summary:hover {
-    color: var(--secondary);
-}
-
-.custom-price-content {
-    margin-top: 10px;
-    background: #faf8fc;
-    padding: 15px;
-    border-radius: 12px;
-    border: 1px solid var(--bg-light);
-}
-
-.custom-price-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px dashed #e5d9f2;
-    font-size: 13px;
-}
-
-.custom-price-row:last-child {
-    border-bottom: none;
-}
-
-.custom-price-row span {
-    color: var(--text);
-    flex: 1;
-}
-
-.custom-price-input {
-    width: 90px;
-    padding: 6px 10px;
-    border: 2px solid var(--accent);
-    border-radius: 8px;
-    text-align: right;
-    font-weight: 600;
-    background: #ffffff;
-    font-family: inherit;
-    transition: all 0.3s;
-}
-
-.custom-price-input:focus {
-    outline: none;
-    border-color: var(--primary);
-    background: #fdfbff;
-    box-shadow: 0 0 0 3px rgba(124, 57, 191, 0.1);
-}
-
-.custom-price-input::placeholder {
-    color: #aaa;
-    font-weight: 400;
-}
-
-/* Стили для выпадающих списков внутри карточек */
-.card-price-details {
-    border-top: 1px solid #eee;
-    padding-top: 10px;
-}
-
-.card-price-details > summary {
-    list-style: none;
-    outline: none;
-}
-
-.card-price-details > summary::-webkit-details-marker {
-    display: none;
-}
-
-.card-price-details[open] > summary {
-    margin-bottom: 5px;
-}
-
-/* Адаптация для маленьких карточек */
-.sig-card .custom-price-content,
-.mchd-card .custom-price-content {
-    padding: 12px;
-}
-
-.sig-card .custom-price-row,
-.mchd-card .custom-price-row {
-    padding: 8px 0;
-    font-size: 12px;
-}
-
-.sig-card .custom-price-input,
-.mchd-card .custom-price-input {
-    width: 70px;
-    padding: 5px 8px;
-    font-size: 13px;
-}
-
-/* Стили для полей внутри карточки КЦР */
-#kcr-options-container {
-    border-top: 1px solid #eee;
-    padding-top: 10px;
-    margin-top: 10px;
-}
-
-#kcr-options-container .variant-row {
-    padding: 8px 0;
-    font-size: 13px;
-}
-
-#kcr-options-container .kep-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-#kcr-options-container .kep-row span {
-    flex: 1;
-    color: var(--text);
-}
-
-#kcr-options-container .qty-input {
-    width: 70px;
-    padding: 6px 8px;
-    border: 1.5px solid #eee;
-    border-radius: 6px;
-    text-align: center;
-    font-weight: 600;
-    transition: all 0.3s;
-}
-
-#kcr-options-container .qty-input:focus {
-    outline: none;
-    border-color: var(--primary);
-    background: #fdfbff;
-}
-
-/* FIX 4: Стиль для поля редактирования кол-ва документов */
-.inline-edit[data-type="docs-count"] {
-    width: 100px;
-}
-/* ── Карточки сервисных услуг ── */
-.addon-card {
-    background: #fff;
-    border: 2px solid #eee;
-    border-radius: 20px;
-    padding: 20px;
-    transition: all 0.3s ease;
-    display: flex;
-    flex-direction: column;
-}
-
-.addon-card.active {
-    border-color: var(--primary);
-    box-shadow: 0 8px 20px rgba(59, 111, 224, 0.1);
-}
-
-.addon-header {
-    display: flex;
-    justify-content: space-between;
     align-items: flex-start;
     gap: 10px;
     margin-bottom: 5px;
@@ -694,7 +307,7 @@ input:disabled + .slider {
     flex: 1;
 }
 
-/* ── Переключатель (switch) ── */
+/* ── Переключатель (SWITCH) ── */
 .custom-switch {
     position: relative;
     display: inline-block;
@@ -755,14 +368,105 @@ input:checked + .slider:before { transform: translateX(20px); }
 .qty-input:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(59, 111, 224, 0.1);
+    box-shadow: 0 0 0 3px rgba(124, 57, 191, 0.1);
 }
 
-/* ── Кнопка КП ── */
-.kp-container {
-    cursor: pointer;
-    margin-top: 25px;
+/* ── Кастомные цены (индивидуальный режим) ── */
+.card-price-details {
+    border-top: 1px solid #eee;
+    padding-top: 10px;
 }
-.kp-container .total-bar {
-    margin-top: 0;
+
+.card-price-details > summary {
+    list-style: none;
+    outline: none;
+}
+
+.card-price-details > summary::-webkit-details-marker {
+    display: none;
+}
+
+.custom-price-summary {
+    font-size: 11px;
+    color: var(--primary);
+    cursor: pointer;
+    font-weight: 600;
+    padding: 8px 0;
+    user-select: none;
+    transition: color 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.custom-price-summary:hover {
+    color: var(--secondary);
+}
+
+.custom-price-content {
+    margin-top: 10px;
+    background: #faf8fc;
+    padding: 12px 15px;
+    border-radius: 12px;
+    border: 1px solid var(--bg-light);
+}
+
+.custom-price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed #e5d9f2;
+    font-size: 13px;
+}
+
+.custom-price-row:last-child {
+    border-bottom: none;
+}
+
+.custom-price-row span {
+    color: var(--text);
+    flex: 1;
+}
+
+.custom-price-input {
+    width: 90px;
+    padding: 6px 10px;
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    text-align: right;
+    font-weight: 600;
+    background: #ffffff;
+    font-family: inherit;
+    font-size: 13px;
+    transition: all 0.3s;
+}
+
+.custom-price-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: #fdfbff;
+    box-shadow: 0 0 0 3px rgba(124, 57, 191, 0.1);
+}
+
+.custom-price-input::placeholder {
+    color: #bbb;
+    font-weight: 400;
+}
+
+/* ── Анимация появления ── */
+.animated-fade {
+    animation: fadeIn 0.4s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Адаптив ── */
+@media (max-width: 600px) {
+    .grid-adaptive { grid-template-columns: 1fr; }
+    .toggle-group  { flex-wrap: wrap; }
+    .total-bar     { flex-direction: column; text-align: center; gap: 15px; }
 }
