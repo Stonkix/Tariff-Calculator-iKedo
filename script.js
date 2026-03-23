@@ -13,30 +13,38 @@ const CONSTANTS = {
             label: 'Установка и настройка расширения ПП Астрал iКЭДО в 1С',
             priceKey: 'install_1c',
             unit: 'шт.',
+            required: true,
+            layout: 'full',
         },
         {
             id: 'start_work',
             label: 'Старт работы в ПП Астрал iКЭДО',
             priceKey: 'start_work',
             unit: 'шт.',
+            layout: 'left',
         },
         {
             id: 'roadmap',
             label: 'Внедрение сервиса iКЭДО по дорожной карте клиента (1 час)',
             priceKey: 'roadmap',
             unit: 'ч.',
+            layout: 'left',
         },
         {
             id: 'onpremise',
             label: 'Услуги по развертыванию ПП iКЭДО (on-premise)',
             priceKey: 'onpremise',
             unit: 'шт.',
+            layout: 'right',
+            muted: true,
         },
         {
             id: 'onpremise_upd',
             label: 'Передача файлов-обновлений ПП iКЭДО (on-premise, только для продления)',
             priceKey: 'onpremise_upd',
             unit: 'шт.',
+            layout: 'right',
+            muted: true,
         },
     ]
 };
@@ -108,15 +116,19 @@ const State = {
         subMode:       'standard',   // 'standard' | 'individual'
         region:        'moscow',
         employees:     0,
-        tariffType:    'main',       // 'main' | 'monthly' | 'promo'
+        tariffType:    'main',       // 'main' | 'monthly' | 'individual'
         term:          12,
         monthlyMonths: 1,            // 1–11
         services:      {},
         customPrices:  {},           // индивидуальные цены: { key: number }
+        individualPrice: null,       // цена за сотрудника в индивидуальном тарифе
     },
 
     initServices() {
-        CONSTANTS.SERVICES.forEach(s => { this.data.services[s.id] = 0; });
+        CONSTANTS.SERVICES.forEach(s => {
+            // Обязательные услуги — включены по умолчанию со значением 1
+            this.data.services[s.id] = s.required ? 1 : 0;
+        });
     },
 
     getTariff(employees) {
@@ -141,7 +153,6 @@ const Helpers = {
  * 5. ЛОГИКА РАСЧЁТА
  */
 const Calculator = {
-    // Получить цену за 1 сотрудника с учётом кастомной
     getPerEmpPrice(tariffId, region, term) {
         const baseKey = `${tariffId}_${region}_${term}`;
         const custom  = State.data.customPrices[baseKey];
@@ -168,10 +179,12 @@ const Calculator = {
 
         // ── Тариф ──
         if (employees > 0) {
-            if (tariffType === 'promo') {
-                total += 0;
-                lines.push(`Промо-тариф (1 месяц): 0 ₽`);
-                meta = { type: 'promo', employees, regionLabel: Helpers.regionLabel(region) };
+            if (tariffType === 'individual') {
+                const perEmp = State.data.individualPrice !== null ? State.data.individualPrice : 0;
+                const totalYear = employees * perEmp;
+                total += totalYear;
+                lines.push(`Индивидуальный тариф: ${Helpers.fmt(employees)} сотр. × ${Helpers.fmt(perEmp)} ₽ = ${Helpers.fmt(totalYear)} ₽`);
+                meta = { type: 'individual', employees, perEmp, totalYear, totalMonth: Math.round(totalYear / 12), regionLabel: Helpers.regionLabel(region) };
 
             } else if (tariffType === 'monthly') {
                 const months       = Math.min(Math.max(monthlyMonths, 1), 11);
@@ -230,9 +243,16 @@ const UI = {
         if (!container) return;
         const isInd = State.data.subMode === 'individual';
 
-        container.innerHTML = CONSTANTS.SERVICES.map(svc => {
+        // Разбиваем на группы по layout
+        const fullSvcs  = CONSTANTS.SERVICES.filter(s => s.layout === 'full');
+        const leftSvcs  = CONSTANTS.SERVICES.filter(s => s.layout === 'left');
+        const rightSvcs = CONSTANTS.SERVICES.filter(s => s.layout === 'right');
+
+        const renderCard = (svc) => {
             const isActive = State.data.services[svc.id] > 0;
             const qty = State.data.services[svc.id] || 1;
+            const isRequired = svc.required === true;
+            const isMuted = svc.muted === true;
 
             const customPriceBlock = isInd ? `
                 <details class="card-price-details" style="margin-top: 12px; border-top: 1px solid #eee; padding-top: 10px;">
@@ -250,29 +270,54 @@ const UI = {
                     </div>
                 </details>` : '';
 
+            const switchOrBadge = isRequired
+                ? `<span class="required-badge">Обязательно</span>`
+                : `<label class="custom-switch">
+                    <input type="checkbox" data-action="toggle-svc" data-id="${svc.id}" ${isActive ? 'checked' : ''}>
+                    <span class="slider"></span>
+                   </label>`;
+
             return `
-            <div class="addon-card ${isActive ? 'active' : ''}" id="svc-card-${svc.id}">
+            <div class="addon-card ${isActive ? 'active' : ''} ${isMuted ? 'addon-card--muted' : ''}" id="svc-card-${svc.id}">
                 <div class="addon-header">
-                    <span class="addon-title">${svc.label}</span>
-                    <label class="custom-switch">
-                        <input type="checkbox" data-action="toggle-svc" data-id="${svc.id}" ${isActive ? 'checked' : ''}>
-                        <span class="slider"></span>
-                    </label>
+                    <span class="addon-title ${isMuted ? 'addon-title--muted' : ''}">${svc.label}</span>
+                    ${switchOrBadge}
                 </div>
                 <div id="svc-body-${svc.id}" style="display:${isActive ? 'block' : 'none'}; margin-top:10px;">
                     <div class="variant-row">
                         <span class="v-label">Количество (${svc.unit})</span>
                         <div class="v-controls">
                             <input type="number" class="qty-input" min="1" value="${qty}"
-                                data-action="svc-qty" data-id="${svc.id}">
+                                data-action="svc-qty" data-id="${svc.id}"
+                                ${isRequired ? '' : ''}>
                         </div>
                     </div>
                     <div id="svc-hint-${svc.id}" style="font-size:12px; color:#888; margin-top:6px; text-align:right;"></div>
                     ${customPriceBlock}
                 </div>
             </div>`;
-        }).join('');
+        };
 
+        // Формируем HTML с нужной раскладкой
+        let html = '';
+
+        // Полная строка
+        fullSvcs.forEach(svc => {
+            html += `<div style="grid-column: 1 / -1;">${renderCard(svc)}</div>`;
+        });
+
+        // Левая и правая колонки
+        const maxRows = Math.max(leftSvcs.length, rightSvcs.length);
+        if (maxRows > 0) {
+            for (let i = 0; i < maxRows; i++) {
+                if (leftSvcs[i])  html += renderCard(leftSvcs[i]);
+                else              html += `<div></div>`;
+                if (rightSvcs[i]) html += renderCard(rightSvcs[i]);
+                else              html += `<div></div>`;
+            }
+        }
+
+        container.innerHTML = html;
         this.updateServiceHints();
     },
 
@@ -309,12 +354,22 @@ const UI = {
         const isInd = State.data.subMode === 'individual';
         let bodyHTML = '';
 
-        if (meta.type === 'promo') {
+        if (meta.type === 'individual') {
             bodyHTML = `
                 <div class="detail-row"><span>Регион</span><strong>${meta.regionLabel}</strong></div>
                 <div class="detail-row"><span>Количество сотрудников</span><strong>${Helpers.fmt(meta.employees)} чел.</strong></div>
-                <div class="detail-row highlight"><span>Срок</span><strong>1 месяц</strong></div>
-                <div class="detail-row highlight"><span>Стоимость</span><strong>0 ₽</strong></div>`;
+                <div class="detail-row">
+                    <span>Цена за 1 сотрудника</span>
+                    <div class="price-edit-block">
+                        <input type="number" class="tariff-field-input" min="0"
+                            value="${State.data.individualPrice ?? ''}"
+                            placeholder="Введите цену"
+                            data-action="individual-price">
+                        <span class="unit-text">₽</span>
+                    </div>
+                </div>
+                <div class="detail-row highlight"><span>Итого в месяц</span><strong>${Helpers.fmt(meta.totalMonth)} ₽</strong></div>
+                <div class="detail-row highlight"><span>Итого за год</span><strong>${Helpers.fmt(meta.totalYear)} ₽</strong></div>`;
 
         } else if (meta.type === 'monthly') {
             const priceBlock = isInd
@@ -361,11 +416,11 @@ const UI = {
                 <div class="detail-row highlight"><span>Итого за период</span><strong>${Helpers.fmt(meta.totalYear)} ₽</strong></div>`;
         }
 
-        const labelText = meta.type === 'promo'   ? 'Промо'
-                        : meta.type === 'monthly' ? 'Помесячный'
+        const labelText = meta.type === 'individual' ? 'Индивидуальный'
+                        : meta.type === 'monthly'    ? 'Помесячный'
                         : meta.tariff.name;
-        const titleText = meta.type === 'promo'   ? '0 ₽ — первый месяц'
-                        : meta.type === 'monthly' ? `${meta.months} ${meta.months === 1 ? 'месяц' : meta.months < 5 ? 'месяца' : 'месяцев'}`
+        const titleText = meta.type === 'individual' ? `${Helpers.fmt(meta.employees)} сотрудников`
+                        : meta.type === 'monthly'    ? `${meta.months} ${meta.months === 1 ? 'месяц' : meta.months < 5 ? 'месяца' : 'месяцев'}`
                         : meta.tariff.rangeLabel;
 
         const indClass = State.data.subMode === 'individual' ? ' individual-mode' : '';
@@ -383,10 +438,10 @@ const UI = {
     // ── Показать/скрыть блоки в зависимости от типа тарифа ──
     updateTariffTypeUI() {
         const type = State.data.tariffType;
-        const termRow         = document.getElementById('term-row');
-        const monthlyMonthsRow = document.getElementById('monthly-months-row');
+        const termRow              = document.getElementById('term-row');
+        const monthlyMonthsRow     = document.getElementById('monthly-months-row');
 
-        if (termRow)          termRow.style.display         = (type === 'main')    ? 'block' : 'none';
+        if (termRow)          termRow.style.display          = (type === 'main')    ? 'block' : 'none';
         if (monthlyMonthsRow) monthlyMonthsRow.style.display = (type === 'monthly') ? 'block' : 'none';
     },
 
@@ -405,7 +460,6 @@ const UI = {
             btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
             State.data.subMode = btn.dataset.val;
-            // Сброс кастомных цен при переключении на стандарт
             if (State.data.subMode === 'standard') {
                 State.data.customPrices = {};
             }
@@ -456,7 +510,6 @@ const UI = {
             } else {
                 delete State.data.customPrices[key];
             }
-            // Пересчитываем без полного ре-рендера карточки (чтобы не сбить фокус)
             const result = Calculator.calculateAll();
             this.els['total-price'].textContent = Helpers.fmt(result.total) + ' ₽';
             this.els['details-content'].innerHTML = result.lines.length
@@ -468,7 +521,13 @@ const UI = {
 
     handleChange(e) {
         const t = e.target, act = t.dataset.action;
-        if (act === 'toggle-svc') {
+
+        if (act === 'individual-price') {
+            const num = Helpers.parseNum(t.value);
+            State.data.individualPrice = (!isNaN(num) && num >= 0) ? num : null;
+            this.update();
+        }
+        else if (act === 'toggle-svc') {
             const id      = t.dataset.id;
             const checked = t.checked;
             document.getElementById(`svc-body-${id}`).style.display = checked ? 'block' : 'none';
@@ -519,11 +578,6 @@ window.updateSvcCustomPrice = (priceKey, value) => {
 
 /**
  * 8. ГЕНЕРАЦИЯ PDF (КП)
- *
- * Структура:
- *   Страница 1 — pdf-header.jpg (только)
- *   Страница 2 — pdf-footer-1.jpg + заголовок + таблица расчёта + блок контактов
- *   Страница 3 — pdf-footer-2.jpg (только, если не влезло на стр.2)
  */
 window.downloadKP = async function() {
     const result = Calculator.calculateAll();
@@ -560,7 +614,7 @@ window.downloadKP = async function() {
     function parseLines(lines, meta) {
         const rows = [];
         lines.forEach(line => {
-            if (line.startsWith('Тариф:') || line.startsWith('Помесячный') || line.startsWith('Промо')) {
+            if (line.startsWith('Тариф:') || line.startsWith('Помесячный') || line.startsWith('Индивидуальный тариф')) {
                 if (meta && meta.type === 'main') {
                     const termLabel = meta.term === 24 ? 'на 2 года' : 'на 1 год';
                     rows.push({
@@ -576,8 +630,13 @@ window.downloadKP = async function() {
                         qty:   meta.employees,
                         total: `${Helpers.fmt(meta.costTotal)} ₽`,
                     });
-                } else if (meta && meta.type === 'promo') {
-                    rows.push({ name: 'Промо-лицензия (1 месяц)', rate: '0 ₽', qty: meta.employees, total: '0 ₽' });
+                } else if (meta && meta.type === 'individual') {
+                    rows.push({
+                        name:  'Индивидуальная лицензия',
+                        rate:  `${Helpers.fmt(meta.perEmp)} ₽`,
+                        qty:   meta.employees,
+                        total: `${Helpers.fmt(meta.totalYear)} ₽`,
+                    });
                 }
                 return;
             }

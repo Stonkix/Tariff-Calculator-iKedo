@@ -49,7 +49,7 @@
             <div class="toggle-group" id="tariff-type-toggle">
                 <button class="toggle-btn selected" data-click="set-tariff-type" data-val="main">Стандартный</button>
                 <button class="toggle-btn" data-click="set-tariff-type" data-val="monthly">Помесячный</button>
-                <button class="toggle-btn" data-click="set-tariff-type" data-val="promo">Промо</button>
+                <button class="toggle-btn" data-click="set-tariff-type" data-val="individual">Индивидуальный</button>
             </div>
         </div>
 
@@ -82,7 +82,7 @@
         <!-- Сервисные услуги -->
         <div style="margin-top: 30px;">
             <h3 style="color: var(--primary); margin: 0 0 15px 0; font-size: 18px;">Сервисные услуги</h3>
-            <div id="services-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px;"></div>
+            <div id="services-container" class="services-grid"></div>
         </div>
 
         <!-- Детализация -->
@@ -117,7 +117,7 @@
                 </div>
                 <div>
                     <label style="display:block; margin-bottom:6px; font-size:13px; font-weight:600; color:var(--text);">Email</label>
-                    <input type="email" id="partner-email" placeholder="partner@astralnalog.ru"
+                    <input type="email" id="partner-email" placeholder="manager@astralnalog.ru"
                            style="width:100%; padding:12px; border:2px solid #eee; border-radius:10px; font-family:inherit; font-size:14px; transition:border-color 0.3s;"
                            onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#eee'">
                 </div>

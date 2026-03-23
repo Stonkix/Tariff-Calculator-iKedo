@@ -275,6 +275,13 @@ body {
     margin-top: 0;
 }
 
+/* ── Грид сервисных услуг ── */
+.services-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
 /* ── Карточки сервисных услуг ── */
 .addon-card {
     background: #fff;
@@ -291,6 +298,19 @@ body {
     box-shadow: 0 8px 20px rgba(124, 57, 191, 0.1);
 }
 
+/* Приглушённые карточки (on-premise) */
+.addon-card--muted {
+    background: #fafafa;
+    border-color: #e8e8e8;
+    opacity: 0.82;
+}
+
+.addon-card--muted.active {
+    border-color: var(--accent);
+    box-shadow: 0 4px 12px rgba(124, 57, 191, 0.07);
+    opacity: 1;
+}
+
 .addon-header {
     display: flex;
     justify-content: space-between;
@@ -305,6 +325,25 @@ body {
     font-size: 14px;
     line-height: 1.4;
     flex: 1;
+}
+
+/* Приглушённый заголовок для on-premise */
+.addon-title--muted {
+    color: #8e7aaa;
+}
+
+/* Бейдж "Обязательно" */
+.required-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 /* ── Переключатель (SWITCH) ── */
@@ -466,7 +505,8 @@ input:checked + .slider:before { transform: translateX(20px); }
 
 /* ── Адаптив ── */
 @media (max-width: 600px) {
-    .grid-adaptive { grid-template-columns: 1fr; }
-    .toggle-group  { flex-wrap: wrap; }
-    .total-bar     { flex-direction: column; text-align: center; gap: 15px; }
+    .grid-adaptive    { grid-template-columns: 1fr; }
+    .services-grid    { grid-template-columns: 1fr; }
+    .toggle-group     { flex-wrap: wrap; }
+    .total-bar        { flex-direction: column; text-align: center; gap: 15px; }
 }
