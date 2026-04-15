@@ -13,7 +13,6 @@ const CONSTANTS = {
             label: 'Установка и настройка расширения ПП Астрал iКЭДО в 1С',
             priceKey: 'install_1c',
             unit: 'шт.',
-            required: true,
             layout: 'full',
         },
         {
